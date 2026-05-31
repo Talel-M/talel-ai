@@ -1,0 +1,8 @@
+{
+  "name": "talel-ai-functions",
+  "version": "1.0.0",
+  "dependencies": {
+    "nodemailer": "^6.9.0",
+    "@netlify/blobs": "^8.0.0"
+  }
+}
