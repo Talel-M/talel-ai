@@ -26,7 +26,7 @@ exports.handler = async (event) => {
     }
 
     // getStore works automatically on Netlify — no siteID/token needed at runtime
-    const store = getStore('talel-users');
+   const store = getStore('talel-users'); 
 
     const key = 'user:' + email.toLowerCase().trim();
 
