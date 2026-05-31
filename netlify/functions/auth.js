@@ -1,11 +1,9 @@
 const { getStore } = require('@netlify/blobs');
-
 const headers = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Content-Type': 'application/json'
 };
-
 async function hashPassword(password) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password + 'talel-ai-salt-2026');
@@ -13,24 +11,20 @@ async function hashPassword(password) {
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 }
-
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method Not Allowed' }) };
-
   try {
     const { action, email, password, name } = JSON.parse(event.body);
-
     if (!email || !password) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing email or password' }) };
     }
-
-    // getStore works automatically on Netlify — no siteID/token needed at runtime
-   const store = getStore('talel-users'); 
-
+    const store = getStore({
+      name: 'talel-users',
+      siteID: process.env.NETLIFY_SITE_ID,
+      token: process.env.NETLIFY_TOKEN
+    });
     const key = 'user:' + email.toLowerCase().trim();
-
-    // ── REGISTER ──────────────────────────────────────────────────
     if (action === 'register') {
       const existing = await store.get(key);
       if (existing) {
@@ -38,15 +32,10 @@ exports.handler = async (event) => {
       }
       const hashed = await hashPassword(password);
       await store.set(key, JSON.stringify({
-        email,
-        name,
-        password: hashed,
-        createdAt: new Date().toISOString()
+        email, name, password: hashed, createdAt: new Date().toISOString()
       }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     }
-
-    // ── LOGIN ──────────────────────────────────────────────────────
     if (action === 'login') {
       const raw = await store.get(key);
       if (!raw) return { statusCode: 404, headers, body: JSON.stringify({ error: 'No account found' }) };
@@ -57,9 +46,7 @@ exports.handler = async (event) => {
       }
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true, name: userData.name }) };
     }
-
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Unknown action' }) };
-
   } catch (err) {
     console.error('auth error:', err);
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
