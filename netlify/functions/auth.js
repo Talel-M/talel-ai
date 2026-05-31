@@ -6,7 +6,6 @@ const headers = {
   'Content-Type': 'application/json'
 };
 
-// Simple hash (SHA-256 via Web Crypto — Node 18+)
 async function hashPassword(password) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password + 'talel-ai-salt-2026');
@@ -22,11 +21,12 @@ exports.handler = async (event) => {
   try {
     const { action, email, password, name } = JSON.parse(event.body);
 
-    const store = getStore({
-      name: 'talel-users',
-      siteID: process.env.NETLIFY_SITE_ID,
-      token: process.env.NETLIFY_TOKEN
-    });
+    if (!email || !password) {
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing email or password' }) };
+    }
+
+    // getStore works automatically on Netlify — no siteID/token needed at runtime
+    const store = getStore('talel-users');
 
     const key = 'user:' + email.toLowerCase().trim();
 
@@ -37,7 +37,12 @@ exports.handler = async (event) => {
         return { statusCode: 409, headers, body: JSON.stringify({ error: 'Email already registered' }) };
       }
       const hashed = await hashPassword(password);
-      await store.set(key, JSON.stringify({ email, name, password: hashed, createdAt: new Date().toISOString() }));
+      await store.set(key, JSON.stringify({
+        email,
+        name,
+        password: hashed,
+        createdAt: new Date().toISOString()
+      }));
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     }
 
@@ -56,6 +61,7 @@ exports.handler = async (event) => {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Unknown action' }) };
 
   } catch (err) {
+    console.error('auth error:', err);
     return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
   }
 };

@@ -43,6 +43,49 @@ exports.handler = async (event) => {
         `📊 *المستوى:* ${level || '—'}\n` +
         `🕐 *الوقت:* ${timestamp}\n` +
         `🖼 *صورة:* ${photo ? 'نعم ✅' : 'لا ❌'}`;
+
+      // Send text message first
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: CHAT_ID, text, parse_mode: 'Markdown' })
+      });
+
+      // Send photo via multipart/form-data (the ONLY way Telegram accepts Base64)
+      if (photo && photo.startsWith('data:image')) {
+        const base64Data = photo.split(',')[1];
+        const mimeType = photo.split(';')[0].split(':')[1]; // e.g. image/jpeg
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // Build multipart form manually (no external libs needed)
+        const boundary = '----TalelAIBoundary' + Date.now();
+        const CRLF = '\r\n';
+
+        const partHeader =
+          `--${boundary}${CRLF}` +
+          `Content-Disposition: form-data; name="chat_id"${CRLF}${CRLF}` +
+          `${CHAT_ID}${CRLF}` +
+          `--${boundary}${CRLF}` +
+          `Content-Disposition: form-data; name="caption"${CRLF}${CRLF}` +
+          `📸 صورة ${name || 'المستخدم'}${CRLF}` +
+          `--${boundary}${CRLF}` +
+          `Content-Disposition: form-data; name="photo"; filename="profile.jpg"${CRLF}` +
+          `Content-Type: ${mimeType}${CRLF}${CRLF}`;
+
+        const partFooter = `${CRLF}--${boundary}--${CRLF}`;
+
+        const headerBuf = Buffer.from(partHeader, 'utf-8');
+        const footerBuf = Buffer.from(partFooter, 'utf-8');
+        const combined = Buffer.concat([headerBuf, buffer, footerBuf]);
+
+        await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
+          method: 'POST',
+          headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+          body: combined
+        });
+      }
+
+      return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
     }
 
     // ── CHAT MESSAGE NOTIFICATION ──────────────────────────────
@@ -64,25 +107,8 @@ exports.handler = async (event) => {
     await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: CHAT_ID,
-        text,
-        parse_mode: 'Markdown'
-      })
+      body: JSON.stringify({ chat_id: CHAT_ID, text, parse_mode: 'Markdown' })
     });
-
-    // Send photo separately if registration includes one
-    if (type === 'registration' && body.photo) {
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: CHAT_ID,
-          photo: body.photo,
-          caption: `📸 صورة ${body.name || 'المستخدم'}`
-        })
-      });
-    }
 
     return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) };
 
