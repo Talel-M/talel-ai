@@ -768,25 +768,183 @@ function obNext() {
 }
 
 function finishOb() {
-  user = { name:obData.name, email:obData.email, age:obData.age, country:obData.country, status:obData.status, goal:obData.goal, level:obData.level, photo:obData.photo||null, lang, joinedAt:new Date().toISOString() };
-  localStorage.setItem('talel_user', JSON.stringify(user));
-  document.getElementById('ob')?.remove();
-  renderWelcomeInChat();
-  fetch('/.netlify/functions/notify', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ 
-      type:'registration', 
-      name: user.name,
-      email: user.email,
-      age: user.age,
-      country: user.country,
-      status: user.status,
-      goal: user.goal,
-      level: user.level,
-      photo: user.photo || null,
-      timestamp: new Date().toLocaleString() 
-    })
-  }).catch(()=>{});
+  // Don't save user yet — show password creation screen first
+  showPasswordScreen();
+}
+
+function showPasswordScreen() {
+  const ob = document.getElementById('ob');
+  ob.innerHTML = `
+  <div class="ob-card" id="pw-card" style="max-width:420px;">
+    <div class="ob-header">
+      <div class="ob-logo"><img src="icon.png" alt="T"></div>
+      <div class="ob-title">Create Your Password</div>
+      <div class="ob-sub">Secure your account. You'll use this to log back in.</div>
+    </div>
+    <div class="ob-body">
+      <!-- MASCOT -->
+      <div id="pw-mascot" style="display:flex;flex-direction:column;align-items:center;margin-bottom:18px;">
+        <div id="pw-mascot-face" style="width:64px;height:64px;background:var(--s2);border:1px solid var(--b2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:0 0 16px rgba(20,100,244,.15);transition:all .3s;">🤖</div>
+        <div id="pw-mascot-msg" style="margin-top:10px;font-size:12px;color:var(--blue3);font-family:var(--mono);text-align:center;min-height:36px;transition:all .3s;padding:0 12px;">Hey ${obData.name?.split(' ')[0] || 'there'}! Create a strong password 💪</div>
+      </div>
+
+      <!-- EMAIL (readonly) -->
+      <div class="ob-field">
+        <label class="ob-label">Email</label>
+        <input class="ob-input" type="email" value="${obData.email}" readonly style="opacity:.6;cursor:not-allowed;">
+      </div>
+
+      <!-- PASSWORD -->
+      <div class="ob-field">
+        <label class="ob-label">Password <span class="ob-req">*</span></label>
+        <div style="position:relative;">
+          <input class="ob-input" id="pw-input" type="password" placeholder="Min. 8 chars, 1 capital letter" autocomplete="new-password" style="padding-right:44px;" oninput="onPwInput(this.value)">
+          <button onclick="togglePwVis()" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--dim);cursor:pointer;font-size:16px;" id="pw-eye">👁</button>
+        </div>
+        <div id="pw-strength" style="margin-top:6px;height:3px;border-radius:3px;background:var(--b1);overflow:hidden;"><div id="pw-strength-bar" style="height:100%;width:0%;border-radius:3px;transition:width .4s,background .4s;"></div></div>
+        <div id="pw-strength-label" style="font-size:9px;font-family:var(--mono);color:var(--dim);margin-top:4px;letter-spacing:.8px;text-transform:uppercase;"></div>
+        <div class="ob-err" id="pw-err" style="display:none;">Password must be at least 8 characters with 1 uppercase letter.</div>
+      </div>
+
+      <!-- CONFIRM PASSWORD -->
+      <div class="ob-field">
+        <label class="ob-label">Confirm Password <span class="ob-req">*</span></label>
+        <input class="ob-input" id="pw-confirm" type="password" placeholder="Repeat your password" autocomplete="new-password" oninput="onPwConfirm(this.value)">
+        <div class="ob-err" id="pw-confirm-err" style="display:none;">Passwords do not match.</div>
+      </div>
+    </div>
+
+    <button class="ob-btn" id="pw-btn" onclick="submitPassword()">Create Account →</button>
+    <div id="pw-loading" style="display:none;text-align:center;font-size:11px;font-family:var(--mono);color:var(--muted);margin-top:10px;">Securing your account...</div>
+  </div>`;
+
+  // Init mascot watcher
+  setTimeout(() => {
+    const inp = document.getElementById('pw-input');
+    if (inp) inp.focus();
+  }, 200);
+}
+
+function onPwInput(val) {
+  const face = document.getElementById('pw-mascot-face');
+  const msg = document.getElementById('pw-mascot-msg');
+  const bar = document.getElementById('pw-strength-bar');
+  const lbl = document.getElementById('pw-strength-label');
+
+  // Cover eyes while typing
+  if (val.length > 0) {
+    face.textContent = '🙈';
+    if (val.length < 3) msg.textContent = "La la la... I see NOTHING! 🙈";
+    else if (val.length < 8) msg.textContent = `${val.length}/8 chars — keep going! (still not looking!)`;
+    else if (!/[A-Z]/.test(val)) { face.textContent = '😬'; msg.textContent = "Pssst — needs at least 1 CAPITAL letter! 😬"; }
+    else if (val.length >= 8 && /[A-Z]/.test(val) && val.length < 12) { face.textContent = '🙈'; msg.textContent = `${val.length} chars. Decent! (still not looking!)`; }
+    else if (val.length >= 12) { face.textContent = '🙈'; msg.textContent = `${val.length} chars! Very strong! I approve! 💪`; }
+  } else {
+    face.textContent = '🤖';
+    msg.textContent = `Hey ${obData.name?.split(' ')[0] || 'there'}! Create a strong password 💪`;
+  }
+
+  // Strength bar
+  let score = 0;
+  if (val.length >= 8) score++;
+  if (val.length >= 12) score++;
+  if (/[A-Z]/.test(val)) score++;
+  if (/[0-9]/.test(val)) score++;
+  if (/[^A-Za-z0-9]/.test(val)) score++;
+  const colors = ['#e05252','#e07a52','#e0c052','#52c78a','#3d7fff'];
+  const labels = ['','WEAK','FAIR','GOOD','STRONG','EXCELLENT'];
+  bar.style.width = (score * 20) + '%';
+  bar.style.background = colors[score - 1] || 'transparent';
+  lbl.textContent = labels[score] || '';
+  lbl.style.color = colors[score - 1] || 'var(--dim)';
+}
+
+function onPwConfirm(val) {
+  const pw = document.getElementById('pw-input')?.value || '';
+  const err = document.getElementById('pw-confirm-err');
+  if (val && val !== pw) err.style.display = 'block';
+  else err.style.display = 'none';
+}
+
+function togglePwVis() {
+  const inp = document.getElementById('pw-input');
+  const eye = document.getElementById('pw-eye');
+  const face = document.getElementById('pw-mascot-face');
+  const msg = document.getElementById('pw-mascot-msg');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    eye.textContent = '🔒';
+    face.textContent = '😳';
+    msg.textContent = "OH! I accidentally saw something! 😳 Hide it again!";
+    setTimeout(() => { face.textContent = '🙈'; msg.textContent = "OK OK I'm not looking again!"; }, 1500);
+  } else {
+    inp.type = 'password';
+    eye.textContent = '👁';
+    face.textContent = '🙈';
+    msg.textContent = "Phew! Covered again! 🙈";
+  }
+}
+
+async function submitPassword() {
+  const pw = document.getElementById('pw-input')?.value || '';
+  const confirm = document.getElementById('pw-confirm')?.value || '';
+  const errEl = document.getElementById('pw-err');
+  const confirmErr = document.getElementById('pw-confirm-err');
+  const btn = document.getElementById('pw-btn');
+  const loading = document.getElementById('pw-loading');
+  const face = document.getElementById('pw-mascot-face');
+  const msg = document.getElementById('pw-mascot-msg');
+
+  // Validate
+  if (pw.length < 8 || !/[A-Z]/.test(pw)) { errEl.style.display = 'block'; return; }
+  else errEl.style.display = 'none';
+  if (pw !== confirm) { confirmErr.style.display = 'block'; return; }
+  else confirmErr.style.display = 'none';
+
+  btn.disabled = true;
+  loading.style.display = 'block';
+  face.textContent = '⏳';
+  msg.textContent = "Creating your account... almost there!";
+
+  try {
+    const res = await fetch('/.netlify/functions/auth', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'register', email: obData.email, password: pw, name: obData.name })
+    });
+    const data = await res.json();
+
+    if (res.status === 409) {
+      face.textContent = '😅';
+      msg.textContent = "This email already has an account!";
+      loading.style.display = 'none';
+      btn.disabled = false;
+      return;
+    }
+
+    // Success — save user and enter
+    face.textContent = '🎉';
+    msg.textContent = `Welcome ${obData.name?.split(' ')[0] || ''}! You're all set! 🎉`;
+
+    user = { name:obData.name, email:obData.email, age:obData.age, country:obData.country, status:obData.status, goal:obData.goal, level:obData.level, photo:obData.photo||null, lang, joinedAt:new Date().toISOString() };
+    localStorage.setItem('talel_user', JSON.stringify(user));
+
+    // Notify Telegram
+    fetch('/.netlify/functions/notify', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ type:'registration', name:user.name, email:user.email, age:user.age, country:user.country, status:user.status, goal:user.goal, level:user.level, photo:user.photo||null, timestamp:new Date().toLocaleString() })
+    }).catch(()=>{});
+
+    setTimeout(() => {
+      document.getElementById('ob')?.remove();
+      renderWelcomeInChat();
+    }, 1200);
+
+  } catch(e) {
+    face.textContent = '😰';
+    msg.textContent = "Connection error. Please try again.";
+    btn.disabled = false;
+    loading.style.display = 'none';
+  }
 }
 
 // ─── WELCOME ────────────────────────────────────────────────────
@@ -1419,20 +1577,20 @@ window.TalelMascot = {
 
         if (self.touchCount === 1) {
           self.slap();
-          self.speak("Hey! Stop that! I'm working! 😤", '#f0c040');
+          self.speak("Hey! Stop that! I'm working! 😤, Yzyy manahmelch chkon ymisnyy 🤭!!", '#f0c040');
           self.mouth('open'); self.brows('angry'); self.look('right');
           self.setLogo('angry');
-          setTimeout(() => { self.reset(); self.speak("...OK fine. Carry on."); }, 2500);
+          setTimeout(() => { self.reset(); self.speak("...OK fine. Carry on, Fokkk alyaa amaan 😭"); }, 2500);
         } else if (self.touchCount === 2) {
           self.slap();
-          self.speak("I SAID STOP! What is wrong with you?! 😡", '#e05252');
+          self.speak("I SAID STOP! What is wrong with you?! 😡, sayebny amaan zhh n9ol l talel rw !!", '#e05252');
           self.setLogo('angry'); self.brows('angry'); self.mouth('sad');
           const logo = document.getElementById('tlLogo');
           if(logo) { logo.style.animation='shake .4s ease'; setTimeout(()=>logo.style.animation='',500); }
           setTimeout(() => { self.reset(); self.speak("Last warning..."); }, 2500);
         } else if (self.touchCount === 3) {
           self.slap();
-          self.speak("Talel WILL NOT be happy if he finds out... 😬", '#e05252');
+          self.speak("Talel WILL NOT be happy if he finds out... 😬, y5y mathebnych , ridhh !!", '#e05252');
           self.setLogo('angry'); self.brows('angry');
         } else {
           // CRY
@@ -1445,13 +1603,13 @@ window.TalelMascot = {
           const hR = document.getElementById('tlHandR');
           if(hL){ hL.style.bottom='32px'; hL.style.left='4px'; hL.style.animation='none'; hL.textContent='🤲'; }
           if(hR){ hR.style.display='none'; }
-          self.speak("😢 Why... WHY do you keep doing this... *sobbing*", '#60aaff');
+          self.speak("😢 Why... WHY do you keep doing this... *sobbing* , Bhy saketny twaa Ha lilaa lKalbaa !! 😭😭", '#60aaff');
 
           self.cryTimer = setTimeout(() => {
             self.touchCount = 0;
             if(hR) hR.style.display='';
             self.reset();
-            self.speak("...I forgive you. Please don't do that again.");
+            self.speak("...I forgive you. Please don't do that again , Samhtek 5trk jyt tsajel andy watytny forsa bch tjrbny 'Nhebk 🤭'");
           }, 4000);
         }
       });
@@ -1510,7 +1668,7 @@ window.TalelMascot = {
       } else if (v.includes('@') && !v.endsWith('@gmail.com') && v.includes('.')) {
         t = setTimeout(() => {
           self.setLogo('error'); self.brows('angry'); self.mouth('sad');
-          self.speak("Only @gmail.com addresses accepted! 😅", '#e05252');
+          self.speak("Only @gmail.com addresses accepted! 😅 , Nsit (@) Haha lzmk thoto", '#e05252');
         }, 600);
       } else {
         self.reset(); self.look('left');
@@ -1527,9 +1685,9 @@ window.TalelMascot = {
   watchPassword(inputEl) {
     const self = this;
     const msgs = [
-      "Nope! NOT looking! I see NOTHING! 🙈",
-      "La la la... definitely not watching!",
-      "Eyes CLOSED! Your secret is safe!",
+      "Nope! NOT looking! I see NOTHING! 🙈 , jwek bhy mnych no8zer Heeh !!",
+      "La la la... definitely not watching! , jwk bhy Lalala",
+      "Eyes CLOSED! Your secret is safe! , ydy omork fi jben",
       "Covering up! Type away! 🙈",
     ];
 
@@ -1559,9 +1717,9 @@ window.TalelMascot = {
         }, 800);
       }
 
-      if (len === 0) self.speak("Type your password... I'm NOT looking!");
+      if (len === 0) self.speak("Type your password... I'm NOT looking! , mnych nchof rw !! ");
       else if (len >= 8 && len < 12) self.speak(`${len} chars. Decent! (still not looking!)`);
-      else if (len >= 12) self.speak(`${len} chars! Very strong! Talel approves! 💪`);
+      else if (len >= 12) self.speak(`${len} chars! Very strong! Talel approves! , ydy m3alem password wala arwa3  💪`);
     });
 
     inputEl.addEventListener('blur', () => {
@@ -1583,15 +1741,15 @@ window.TalelMascot = {
 })();
 
 
-// Mascot hooks - safe injection
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    if (!user && window.TalelMascot) {
-      const obCard = document.querySelector('.ob-card');
-      if (obCard) TalelMascot.inject(obCard);
-    }
-  }, 300);
-});
+// Mascot only appears on password screen — handled by showPasswordScreen()
+
+
+
+
+
+
+
+
 </script>
 </body>
 </html>
