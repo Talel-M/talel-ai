@@ -24,7 +24,7 @@ exports.handler = async (event) => {
 
     const store = getStore({
       name: 'talel-users',
-      siteID: process.env.SITE_ID,
+      siteID: process.env.NETLIFY_SITE_ID,
       token: process.env.NETLIFY_TOKEN
     });
 
