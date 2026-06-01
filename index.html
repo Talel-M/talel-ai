@@ -292,28 +292,35 @@ header{
   <div class="chip" onclick="quickSend(T('q_study'))">Study</div>
 </div>
 
-<div class="upload-bar">
-  <button class="ubtn" onclick="document.getElementById('imgInput').click()" id="ubtn-gallery">Gallery</button>
-  <input type="file" id="imgInput" accept="image/*" onchange="handleImg(this)">
-  <button class="ubtn cam" onclick="document.getElementById('camInput').click()" id="ubtn-camera">Camera</button>
-  <input type="file" id="camInput" accept="image/*" capture="environment" onchange="handleImg(this)">
-  <div id="imgPreview">
-    <img id="prevThumb" src="" alt="">
-    <span class="pname" id="prevName"></span>
-    <span class="prm" onclick="removeImg()">x</span>
-  </div>
-</div>
+<input type="file" id="imgInput" accept="image/*" onchange="handleImg(this)" style="display:none">
+<input type="file" id="camInput" accept="image/*" capture="environment" onchange="handleImg(this)" style="display:none">
 
 <div id="chat"><div id="welcome-container"></div></div>
 
+<!-- ATTACH MENU -->
+<div id="attachMenu" style="display:none;position:fixed;bottom:80px;left:18px;background:var(--s2);border:1px solid var(--b2);border-radius:10px;padding:6px;z-index:30;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:riseUp .18s ease;">
+  <button onclick="document.getElementById('imgInput').click();closeAttach()" id="ubtn-gallery" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 14px;border-radius:7px;border:none;background:transparent;color:var(--white);font-size:13px;cursor:pointer;transition:background .15s;text-align:left;" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">
+    <span style="font-size:18px;">🖼️</span> <span id="ubtn-gallery-lbl">Gallery</span>
+  </button>
+  <button onclick="document.getElementById('camInput').click();closeAttach()" id="ubtn-camera" style="display:flex;align-items:center;gap:10px;width:100%;padding:9px 14px;border-radius:7px;border:none;background:transparent;color:var(--white);font-size:13px;cursor:pointer;transition:background .15s;text-align:left;" onmouseover="this.style.background='var(--s3)'" onmouseout="this.style.background='transparent'">
+    <span style="font-size:18px;">📷</span> <span id="ubtn-camera-lbl">Camera</span>
+  </button>
+</div>
+
 <div class="izone">
+  <div id="imgPreview" style="display:none;align-items:center;gap:6px;padding:5px 4px 2px;">
+    <img id="prevThumb" src="" alt="" style="width:28px;height:28px;object-fit:cover;border-radius:5px;border:1px solid var(--b2);">
+    <span class="pname" id="prevName" style="font-size:10px;font-family:var(--mono);color:var(--blue3);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+    <span onclick="removeImg()" style="cursor:pointer;color:var(--dim);font-size:12px;font-family:var(--mono);transition:color .15s;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--dim)'">✕</span>
+  </div>
   <div class="ibox">
-    <textarea id="userInput" rows="1" id="userInput"></textarea>
+    <button id="attachBtn" onclick="toggleAttach()" style="width:32px;height:32px;border-radius:8px;border:1px solid var(--b2);background:transparent;color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;line-height:1;" onmouseover="this.style.borderColor='var(--blue2)';this.style.color='var(--blue3)'" onmouseout="this.style.borderColor='var(--b2)';this.style.color='var(--muted)'">+</button>
+    <textarea id="userInput" rows="1"></textarea>
     <button id="sendBtn" onclick="sendMessage()">&#10148;</button>
   </div>
   <div class="ifoot">
     <span class="ifoot-hint" id="input-hint">Enter to send · Shift+Enter for new line</span>
-    <span class="ifoot-brand">TALEL AI · 2025</span>
+    <span class="ifoot-brand">TALEL AI · 2026</span>
   </div>
 </div>
 
@@ -782,11 +789,8 @@ function showPasswordScreen() {
       <div class="ob-sub">Secure your account. You'll use this to log back in.</div>
     </div>
     <div class="ob-body">
-      <!-- MASCOT -->
-      <div id="pw-mascot" style="display:flex;flex-direction:column;align-items:center;margin-bottom:18px;">
-        <div id="pw-mascot-face" style="width:64px;height:64px;background:var(--s2);border:1px solid var(--b2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;box-shadow:0 0 16px rgba(20,100,244,.15);transition:all .3s;">🤖</div>
-        <div id="pw-mascot-msg" style="margin-top:10px;font-size:12px;color:var(--blue3);font-family:var(--mono);text-align:center;min-height:36px;transition:all .3s;padding:0 12px;">Hey ${obData.name?.split(' ')[0] || 'there'}! Create a strong password 💪</div>
-      </div>
+      <!-- REAL MASCOT INJECTED HERE -->
+      <div id="pw-mascot-host"></div>
 
       <!-- EMAIL (readonly) -->
       <div class="ob-field">
@@ -818,30 +822,32 @@ function showPasswordScreen() {
     <div id="pw-loading" style="display:none;text-align:center;font-size:11px;font-family:var(--mono);color:var(--muted);margin-top:10px;">Securing your account...</div>
   </div>`;
 
-  // Init mascot watcher
+  // Inject real mascot + watch password field
   setTimeout(() => {
-    const inp = document.getElementById('pw-input');
-    if (inp) inp.focus();
-  }, 200);
+    const host = document.getElementById('pw-mascot-host');
+    if (host && window.TalelMascot) {
+      TalelMascot.inject(host);
+      TalelMascot.speak(`Yay ${obData.name?.split(' ')[0] || ''}! Rani hna nchouflek el password — MAAAANEJHSH!! 🙈`);
+      const pwInp = document.getElementById('pw-input');
+      if (pwInp) TalelMascot.watchPassword(pwInp);
+    }
+    document.getElementById('pw-input')?.focus();
+  }, 300);
 }
 
 function onPwInput(val) {
-  const face = document.getElementById('pw-mascot-face');
-  const msg = document.getElementById('pw-mascot-msg');
   const bar = document.getElementById('pw-strength-bar');
   const lbl = document.getElementById('pw-strength-label');
 
-  // Cover eyes while typing
+  // Cover eyes while typing — use TalelMascot.speak()
   if (val.length > 0) {
-    face.textContent = '🙈';
-    if (val.length < 3) msg.textContent = "La la la... I see NOTHING! 🙈";
-    else if (val.length < 8) msg.textContent = `${val.length}/8 chars — keep going! (still not looking!)`;
-    else if (!/[A-Z]/.test(val)) { face.textContent = '😬'; msg.textContent = "Pssst — needs at least 1 CAPITAL letter! 😬"; }
-    else if (val.length >= 8 && /[A-Z]/.test(val) && val.length < 12) { face.textContent = '🙈'; msg.textContent = `${val.length} chars. Decent! (still not looking!)`; }
-    else if (val.length >= 12) { face.textContent = '🙈'; msg.textContent = `${val.length} chars! Very strong! I approve! 💪`; }
+    if (val.length < 3) { if(window.TalelMascot) TalelMascot.speak("La la la... I see NOTHING! 🙈"); }
+    else if (val.length < 8) { if(window.TalelMascot) TalelMascot.speak(`${val.length}/8 chars — keep going! (still not looking!)`); }
+    else if (!/[A-Z]/.test(val)) { if(window.TalelMascot) TalelMascot.speak("Pssst — needs at least 1 CAPITAL letter! 😬", '#f0c040'); }
+    else if (val.length >= 8 && /[A-Z]/.test(val) && val.length < 12) { if(window.TalelMascot) TalelMascot.speak(`${val.length} chars. Decent! (still not looking!)`); }
+    else if (val.length >= 12) { if(window.TalelMascot) TalelMascot.speak(`${val.length} chars! Very strong! I approve! 💪`, '#34c78a'); }
   } else {
-    face.textContent = '🤖';
-    msg.textContent = `Hey ${obData.name?.split(' ')[0] || 'there'}! Create a strong password 💪`;
+    if(window.TalelMascot) TalelMascot.speak(`Hey ${obData.name?.split(' ')[0] || 'there'}! Create a strong password 💪`);
   }
 
   // Strength bar
@@ -869,19 +875,15 @@ function onPwConfirm(val) {
 function togglePwVis() {
   const inp = document.getElementById('pw-input');
   const eye = document.getElementById('pw-eye');
-  const face = document.getElementById('pw-mascot-face');
-  const msg = document.getElementById('pw-mascot-msg');
   if (inp.type === 'password') {
     inp.type = 'text';
     eye.textContent = '🔒';
-    face.textContent = '😳';
-    msg.textContent = "OH! I accidentally saw something! 😳 Hide it again!";
-    setTimeout(() => { face.textContent = '🙈'; msg.textContent = "OK OK I'm not looking again!"; }, 1500);
+    if(window.TalelMascot) TalelMascot.speak("OH! I accidentally saw something! 😳 Hide it again!", '#f0c040');
+    setTimeout(() => { if(window.TalelMascot) TalelMascot.speak("OK OK I'm not looking again! 🙈"); }, 1500);
   } else {
     inp.type = 'password';
     eye.textContent = '👁';
-    face.textContent = '🙈';
-    msg.textContent = "Phew! Covered again! 🙈";
+    if(window.TalelMascot) TalelMascot.speak("Phew! Covered again! 🙈");
   }
 }
 
@@ -892,8 +894,6 @@ async function submitPassword() {
   const confirmErr = document.getElementById('pw-confirm-err');
   const btn = document.getElementById('pw-btn');
   const loading = document.getElementById('pw-loading');
-  const face = document.getElementById('pw-mascot-face');
-  const msg = document.getElementById('pw-mascot-msg');
 
   // Validate
   if (pw.length < 8 || !/[A-Z]/.test(pw)) { errEl.style.display = 'block'; return; }
@@ -903,8 +903,7 @@ async function submitPassword() {
 
   btn.disabled = true;
   loading.style.display = 'block';
-  face.textContent = '⏳';
-  msg.textContent = "Creating your account... almost there!";
+  if (window.TalelMascot) TalelMascot.speak('Creating your account... almost there! ⏳');
 
   try {
     const res = await fetch('/.netlify/functions/auth', {
@@ -914,16 +913,14 @@ async function submitPassword() {
     const data = await res.json();
 
     if (res.status === 409) {
-      face.textContent = '😅';
-      msg.textContent = "This email already has an account!";
+      if (window.TalelMascot) TalelMascot.speak('This email already has an account! 😅', '#e05252');
       loading.style.display = 'none';
       btn.disabled = false;
       return;
     }
 
     // Success — save user and enter
-    face.textContent = '🎉';
-    msg.textContent = `Welcome ${obData.name?.split(' ')[0] || ''}! You're all set! 🎉`;
+    if (window.TalelMascot) TalelMascot.speak(`Welcome ${obData.name?.split(' ')[0] || ''}! You're all set! 🎉`, '#34c78a');
 
     user = { name:obData.name, email:obData.email, age:obData.age, country:obData.country, status:obData.status, goal:obData.goal, level:obData.level, photo:obData.photo||null, lang, joinedAt:new Date().toISOString() };
     localStorage.setItem('talel_user', JSON.stringify(user));
@@ -940,8 +937,7 @@ async function submitPassword() {
     }, 1200);
 
   } catch(e) {
-    face.textContent = '😰';
-    msg.textContent = "Connection error. Please try again.";
+    if (window.TalelMascot) TalelMascot.speak('Connection error. Please try again. 😰', '#e05252');
     btn.disabled = false;
     loading.style.display = 'none';
   }
@@ -1154,27 +1150,13 @@ async function sendMessage(text){
   const hadImg=!!imgData; removeImg();
   let ctx='';
   if(user) ctx=`User context: Name=${user.name}, Age=${user.age}, Country=${user.country}, Status=${user.status}, Goal=${user.goal}, Level=${user.level}. Address by first name.`;
-
-  // ── LOAD MEMORY ──────────────────────────────────────────────
-  let memoryCtx = '';
-  if(user?.email) {
-    try {
-      const memRes = await fetch('/.netlify/functions/memory', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ action:'get', email: user.email })
-      });
-      const memData = await memRes.json();
-      if(memData.memory) memoryCtx = '\n\n## MEMORY ABOUT THIS USER (use naturally in conversation):\n' + memData.memory;
-    } catch(e) {}
-  }
-
   messages.push({role:'user',content});
   showTyping();
   try{
     const model=hadImg?'meta-llama/llama-4-scout-17b-16e-instruct':'llama-3.3-70b-versatile';
     const res=await fetch('/.netlify/functions/chat',{
       method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model, system:SYSTEM_PROMPT+(ctx?'\n\n'+ctx:'')+memoryCtx, messages:messages.map(m=>({role:m.role==='assistant'?'assistant':'user',content:typeof m.content==='string'?m.content:m.content}))})
+      body:JSON.stringify({model, system:SYSTEM_PROMPT+(ctx?'\n\n'+ctx:''), messages:messages.map(m=>({role:m.role==='assistant'?'assistant':'user',content:typeof m.content==='string'?m.content:m.content}))})
     });
     const data=await res.json();
     const reply=data.choices?.[0]?.message?.content||data.error?.message||'Connection error.';
@@ -1185,14 +1167,6 @@ async function sendMessage(text){
     saveCurrentChat();
     const vio=['kill','murder','sex','porn','nude','terrorist','bomb'];
     fetch('/.netlify/functions/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'message',userName:user?.name||'Unknown',email:user?.email||'',userMessage:hadImg?'[Image] '+(txt||''):txt,aiReply:reply,timestamp:new Date().toLocaleString(),isViolation:vio.some(w=>txt?.toLowerCase().includes(w))})}).catch(()=>{});
-
-    // ── UPDATE MEMORY (background, every 3 messages) ────────────
-    if(user?.email && messages.length % 3 === 0) {
-      fetch('/.netlify/functions/memory', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ action:'update', email: user.email, conversation: messages })
-      }).catch(()=>{});
-    }
   } catch(e){ removeTyping(); addMsg('ai','Connection error: '+e.message); }
   loading=false; document.getElementById('sendBtn').disabled=false;
 }
@@ -1228,9 +1202,105 @@ ta.addEventListener('input',function(){ this.style.height='auto'; this.style.hei
 ta.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(); } });
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 
+// ─── ATTACH MENU ─────────────────────────────────────────────────
+function toggleAttach(){
+  const m=document.getElementById('attachMenu');
+  m.style.display = m.style.display==='none' ? 'block' : 'none';
+}
+function closeAttach(){ document.getElementById('attachMenu').style.display='none'; }
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#attachMenu') && !e.target.closest('#attachBtn')) closeAttach();
+});
+
+// ─── LOGIN SCREEN ─────────────────────────────────────────────────
+function showLogin() {
+  const el = document.createElement('div');
+  el.className = 'ob-bg'; el.id = 'ob';
+  document.body.appendChild(el);
+  el.innerHTML = `<div class="ob-card" style="max-width:400px;">
+    <div class="ob-header">
+      <div id="login-mascot-host"></div>
+      <div class="ob-title" style="margin-top:8px;">Welcome Back</div>
+      <div class="ob-sub">Sign in to continue to Talel AI</div>
+    </div>
+    <div class="ob-body">
+      <div class="ob-field">
+        <label class="ob-label">Email <span class="ob-req">*</span></label>
+        <input class="ob-input" id="login-email" type="email" placeholder="your@gmail.com" autocomplete="email">
+        <div class="ob-err" id="login-email-err">Enter a valid email</div>
+      </div>
+      <div class="ob-field">
+        <label class="ob-label">Password <span class="ob-req">*</span></label>
+        <div style="position:relative;">
+          <input class="ob-input" id="login-pw" type="password" placeholder="Your password" autocomplete="current-password" style="padding-right:44px;" onkeydown="if(event.key==='Enter')doLogin()">
+          <button onclick="const i=document.getElementById('login-pw');i.type=i.type==='password'?'text':'password'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--dim);cursor:pointer;font-size:14px;">👁</button>
+        </div>
+        <div class="ob-err" id="login-pw-err">Wrong password</div>
+      </div>
+      <div id="login-err" style="display:none;font-size:11px;color:var(--red);font-family:var(--mono);text-align:center;padding:6px;background:rgba(224,82,82,.08);border-radius:6px;border:1px solid rgba(224,82,82,.15);"></div>
+    </div>
+    <button class="ob-btn" id="login-btn" onclick="doLogin()">Sign In →</button>
+    <div style="text-align:center;margin-top:12px;">
+      <span style="font-size:11px;color:var(--dim);">No account? </span>
+      <button onclick="document.getElementById('ob').remove();showOnboarding();" style="background:none;border:none;color:var(--blue3);font-size:11px;font-family:var(--mono);cursor:pointer;text-decoration:underline;">Create one</button>
+    </div>
+  </div>`;
+
+  // Inject mascot
+  setTimeout(() => {
+    const host = document.getElementById('login-mascot-host');
+    if (host && window.TalelMascot) {
+      TalelMascot.inject(host);
+      TalelMascot.speak("Ahlaa jwk bhy Marhba byk fi TalelAi , i'm here to help youuu !!😄");
+      const emailInp = document.getElementById('login-email');
+      const pwInp = document.getElementById('login-pw');
+      if (emailInp) TalelMascot.watchEmail(emailInp);
+      if (pwInp) TalelMascot.watchPassword(pwInp);
+    }
+  }, 300);
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-pw').value;
+  const errBox = document.getElementById('login-err');
+  const btn = document.getElementById('login-btn');
+  if (!email) { document.getElementById('login-email-err').style.display='block'; return; }
+  if (!pw) { document.getElementById('login-pw-err').style.display='block'; return; }
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  errBox.style.display = 'none';
+  try {
+    const res = await fetch('/.netlify/functions/auth', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'login', email, password:pw })
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      errBox.textContent = res.status===404 ? 'No account found with this email.' : 'Wrong password. Try again.';
+      errBox.style.display = 'block';
+      btn.disabled=false; btn.textContent='Sign In →';
+      return;
+    }
+    // Load saved user from localStorage if exists
+    const saved = JSON.parse(localStorage.getItem('talel_user')||'null');
+    if (saved && saved.email === email) {
+      user = saved;
+    } else {
+      user = { name: data.name || email.split('@')[0], email, lang:'en', joinedAt: new Date().toISOString() };
+      localStorage.setItem('talel_user', JSON.stringify(user));
+    }
+    document.getElementById('ob')?.remove();
+    renderWelcomeInChat();
+  } catch(e) {
+    errBox.textContent = 'Connection error. Try again.';
+    errBox.style.display='block';
+    btn.disabled=false; btn.textContent='Sign In →';
+  }
+}
+
 updateTokens(0);
 applyLangUI();
-if(!user){ showOnboarding(); } else { renderWelcomeInChat(); }
+if(!user){ showLogin(); } else { renderWelcomeInChat(); }
 
 // ─── MASCOT ───────────────────────────────────────────────────────
 
