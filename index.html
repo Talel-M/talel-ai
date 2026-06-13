@@ -927,6 +927,8 @@ async function submitPassword() {
     if (res.status === 409) {
       if (face) face.textContent = '😅';
       if (msg) msg.textContent = "This email already has an account!";
+      errEl.textContent = 'This email is already registered. Please go back and use a different email.';
+      errEl.style.display = 'block';
       loading.style.display = 'none';
       btn.disabled = false;
       return;
