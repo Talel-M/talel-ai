@@ -844,15 +844,15 @@ function onPwInput(val) {
 
   // Cover eyes while typing
   if (val.length > 0) {
-    face.textContent = '🙈';
-    if (val.length < 3) msg.textContent = "La la la... I see NOTHING! 🙈";
-    else if (val.length < 8) msg.textContent = `${val.length}/8 chars — keep going! (still not looking!)`;
-    else if (!/[A-Z]/.test(val)) { face.textContent = '😬'; msg.textContent = "Pssst — needs at least 1 CAPITAL letter! 😬"; }
-    else if (val.length >= 8 && /[A-Z]/.test(val) && val.length < 12) { face.textContent = '🙈'; msg.textContent = `${val.length} chars. Decent! (still not looking!)`; }
-    else if (val.length >= 12) { face.textContent = '🙈'; msg.textContent = `${val.length} chars! Very strong! I approve! 💪`; }
+    if (face) face.textContent = '🙈';
+    if (val.length < 3) { if (msg) msg.textContent = "La la la... I see NOTHING! 🙈"; }
+    else if (val.length < 8) { if (msg) msg.textContent = `${val.length}/8 chars — keep going! (still not looking!)`; }
+    else if (!/[A-Z]/.test(val)) { if (face) face.textContent = '😬'; if (msg) msg.textContent = "Pssst — needs at least 1 CAPITAL letter! 😬"; }
+    else if (val.length >= 8 && /[A-Z]/.test(val) && val.length < 12) { if (face) face.textContent = '🙈'; if (msg) msg.textContent = `${val.length} chars. Decent! (still not looking!)`; }
+    else if (val.length >= 12) { if (face) face.textContent = '🙈'; if (msg) msg.textContent = `${val.length} chars! Very strong! I approve! 💪`; }
   } else {
-    face.textContent = '🤖';
-    msg.textContent = `Hey ${obData.name?.split(' ')[0] || 'there'}! Create a strong password 💪`;
+    if (face) face.textContent = '🤖';
+    if (msg) msg.textContent = `Hey ${obData.name?.split(' ')[0] || 'there'}! Create a strong password 💪`;
   }
 
   // Strength bar
@@ -885,14 +885,14 @@ function togglePwVis() {
   if (inp.type === 'password') {
     inp.type = 'text';
     eye.textContent = '🔒';
-    face.textContent = '😳';
-    msg.textContent = "OH! I accidentally saw something! 😳 Hide it again!";
-    setTimeout(() => { face.textContent = '🙈'; msg.textContent = "OK OK I'm not looking again!"; }, 1500);
+    if (face) face.textContent = '😳';
+    if (msg) msg.textContent = "OH! I accidentally saw something! 😳 Hide it again!";
+    setTimeout(() => { if (face) face.textContent = '🙈'; if (msg) msg.textContent = "OK OK I'm not looking again!"; }, 1500);
   } else {
     inp.type = 'password';
     eye.textContent = '👁';
-    face.textContent = '🙈';
-    msg.textContent = "Phew! Covered again! 🙈";
+    if (face) face.textContent = '🙈';
+    if (msg) msg.textContent = "Phew! Covered again! 🙈";
   }
 }
 
@@ -914,8 +914,8 @@ async function submitPassword() {
 
   btn.disabled = true;
   loading.style.display = 'block';
-  face.textContent = '⏳';
-  msg.textContent = "Creating your account... almost there!";
+  if (face) face.textContent = '⏳';
+  if (msg) msg.textContent = "Creating your account... almost there!";
 
   try {
     const res = await fetch('/.netlify/functions/auth', {
@@ -925,16 +925,16 @@ async function submitPassword() {
     const data = await res.json();
 
     if (res.status === 409) {
-      face.textContent = '😅';
-      msg.textContent = "This email already has an account!";
+      if (face) face.textContent = '😅';
+      if (msg) msg.textContent = "This email already has an account!";
       loading.style.display = 'none';
       btn.disabled = false;
       return;
     }
 
     // Success — save user and enter
-    face.textContent = '🎉';
-    msg.textContent = `Welcome ${obData.name?.split(' ')[0] || ''}! You're all set! 🎉`;
+    if (face) face.textContent = '🎉';
+    if (msg) msg.textContent = `Welcome ${obData.name?.split(' ')[0] || ''}! You're all set! 🎉`;
 
     user = { name:obData.name, email:obData.email, age:obData.age, country:obData.country, status:obData.status, goal:obData.goal, level:obData.level, photo:obData.photo||null, lang, joinedAt:new Date().toISOString() };
     localStorage.setItem('talel_user', JSON.stringify(user));
@@ -951,8 +951,8 @@ async function submitPassword() {
     }, 1200);
 
   } catch(e) {
-    face.textContent = '😰';
-    msg.textContent = "Connection error. Please try again.";
+    if (face) face.textContent = '😰';
+    if (msg) msg.textContent = "Connection error. Please try again.";
     btn.disabled = false;
     loading.style.display = 'none';
   }
